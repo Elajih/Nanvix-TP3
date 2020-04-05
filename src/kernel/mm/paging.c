@@ -284,67 +284,55 @@ PRIVATE struct
 	addr_t addr;    /**< Address of the page. */
 } frames[NR_FRAMES] = {{0, 0, 0, 0},  };
 
-
-int index = 0; /* Index of the page */
-int framesCounter=0; /* Number of page frames */
-
-
-/*function to search the next valid index */
-PRIVATE void valid_index(void){
-	do{
-		index = (index+1)%NR_FRAMES;
-	} while((frames[index].owner != curr_proc->pid) || (frames[index].count > 1));
-
-}
-
-
 /**
  * @brief Allocates a page frame.
  *
  * @returns Upon success, the number of the frame is returned. Upon failure, a
  *          negative number is returned instead.
  */
-PRIVATE int allocf(void)
-{
-	int i;      /* Loop index.  */
+ PRIVATE int allocf(void)
+ {
+ 	int i;      /* Loop index.  */
+ 	int oldest; /* Oldest page. */
 
-	/* Search for a free frame. */
-	if(framesCounter<NR_FRAMES){
-		for (i = 0; i < NR_FRAMES; i++)
-		{
-			/* Found it. */
-			if (frames[i].count == 0){
-				goto found;
-			}
-		}
-	}
-	valid_index();
-	addr_t addr= (frames[index].addr) & (PAGE_MASK);
-	struct pte *pg = getpte(curr_proc, addr);
+ 	#define OLDEST(x, y) (frames[x].age < frames[y].age)
 
+ 	/* Search for a free frame. */
+ 	oldest = -1;
+ 	for (i = 0; i < NR_FRAMES; i++)
+ 	{
+ 		/* Found it. */
+ 		if (frames[i].count == 0)
+ 			goto found;
 
-/* Take out the second chance of the current Frame if it's found */
-	while(pg->accessed){
-		pg->accessed=0;
+ 		/* Local page replacement policy. */
+ 		if (frames[i].owner == curr_proc->pid)
+ 		{
+ 			/* Skip shared pages. */
+ 			if (frames[i].count > 1)
+ 				continue;
 
-		valid_index();
-		addr= (frames[index].addr) & (PAGE_MASK);
-		pg = getpte(curr_proc, addr);
-	}
+ 			/* Oldest page found. */
+ 			if ((oldest < 0) || (OLDEST(i, oldest)))
+ 				oldest = i;
+ 		}
+ 	}
 
-	/* if a frame has no second chance*/
-	i = index;
+ 	/* No frame left. */
+ 	if (oldest < 0)
+ 		return (-1);
 
+ 	/* Swap page out. */
+ 	if (swap_out(curr_proc, frames[i = oldest].addr))
+ 		return (-1);
 
-	/* Swap page out. */
-	if (swap_out(curr_proc, frames[i].addr))
-		return (-1);
-found:
+ found:
 
-	frames[i].count = 1;
-	framesCounter++;
-	return (i);
-}
+ 	frames[i].age = ticks;
+ 	frames[i].count = 1;
+
+ 	return (i);
+ }
 
 /**
  * @brief Copies a page.
