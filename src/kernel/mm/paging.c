@@ -285,16 +285,16 @@ PRIVATE struct
 } frames[NR_FRAMES] = {{0, 0, 0, 0},  };
 
 
-int index = 0; /* Index of the page */
-int framesCounter=0; /* Number of page frames */
-
-
-/*function to search the next valid index */
-PRIVATE void valid_index(void){
-	do{
-		index = (index+1)%NR_FRAMES;
-	} while((frames[index].owner != curr_proc->pid) || (frames[index].count > 1));
-
+/* Fonction qui met à jour l'âge */
+PRIVATE inline void updateAge(int index) {
+	struct pte *currentPage = getpte(curr_proc,frames[index].addr);
+	if(currentPage->accessed) { //Dès qu'une page est accédé, on réinitialise son âge
+		frames[index].age = 0;
+		currentPage->accessed=0;
+	}
+	else {
+		frames[index].age++;
+	}
 }
 
 
@@ -304,47 +304,61 @@ PRIVATE void valid_index(void){
  * @returns Upon success, the number of the frame is returned. Upon failure, a
  *          negative number is returned instead.
  */
-PRIVATE int allocf(void)
-{
-	int i;      /* Loop index.  */
+ PRIVATE int allocf(void) {
 
-	/* Search for a free frame. */
-	if(framesCounter<NR_FRAMES){
-		for (i = 0; i < NR_FRAMES; i++)
-		{
-			/* Found it. */
-			if (frames[i].count == 0){
-				goto found;
-			}
-		}
-	}
-	valid_index();
-	addr_t addr= (frames[index].addr) & (PAGE_MASK);
-	struct pte *pg = getpte(curr_proc, addr);
+ 	int i;      // Loop index
+ 	int chosen; // Chosen page
+ 	int foundEmpty = 0; // Boolean if an empty frame was found
 
+ 	#define OLDEST(x, y) (frames[x].age < frames[y].age) // Return true if x is younger that y
 
-/* Take out the second chance of the current Frame if it's found */
-	while(pg->accessed){
-		pg->accessed=0;
+ 	/* Search for a free frame. */
+ 	chosen = -1;
+ 	for (i = 0; i < NR_FRAMES; i++) {
+		/* If the frame is used */
+ 		if(frames[i].count>0) {
+ 			updateAge(i);
+ 		}
 
-		valid_index();
-		addr= (frames[index].addr) & (PAGE_MASK);
-		pg = getpte(curr_proc, addr);
-	}
+ 		/* If an empty frame was found, just update the frames ages*/
+ 		if(foundEmpty) {
+ 			continue;
+ 		}
 
-	/* if a frame has no second chance*/
-	i = index;
+ 		/* If there is a free frame. */
+ 		if (frames[i].count == 0) {
+ 			foundEmpty=1;
+ 			chosen=i;
+ 		}
 
+		/* Else, apply local page replacement policy. */
+		else if (frames[i].owner == curr_proc->pid) {
+ 			/* Skip shared pages. */
+ 			if (frames[i].count > 1) {
+ 				continue;
+ 			}
+ 			/* If oldest page found or chosen hasn't a value */
+ 			if ((chosen < 0) || (OLDEST(chosen,i))) {
+ 				chosen = i;
+ 			}
+ 		}
+ 	}
 
-	/* Swap page out. */
-	if (swap_out(curr_proc, frames[i].addr))
-		return (-1);
-found:
+ 	/* No frame found. */
+ 	if (chosen < 0) {
+ 		return (-1);
+ 	}
 
-	frames[i].count = 1;
-	framesCounter++;
-	return (i);
-}
+ 	/* 	Swap page out if we didn't find an empty frame */
+ 	if (!foundEmpty && swap_out(curr_proc, frames[chosen].addr)) {
+ 		return (-1);
+ 	}
+
+ 	frames[chosen].age = 0;
+ 	frames[chosen].count = 1;
+
+ 	return (chosen);
+ }
 
 /**
  * @brief Copies a page.
