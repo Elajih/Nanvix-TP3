@@ -78,7 +78,7 @@ static int swap_test(void)
 	t1 = times(&timing);
 
 	if (flags & VERBOSE){
-		printf(" temps initialisation: %d\n", t1 - t0);
+		printf(" Temps d'initialisation: %d\n", t1 - t0);
 	}
 
 
@@ -99,7 +99,7 @@ static int swap_test(void)
 	t2 = times(&timing);
 
 	if (flags & VERBOSE){
-		printf(" temps de calcul: %d\n", t2 - t1);
+		printf(" Temps de calcul: %d\n", t2 - t1);
 	}
 
 
@@ -116,7 +116,7 @@ static int swap_test(void)
 	t1 = times(&timing);
 
 	if (flags & VERBOSE){
-		printf(" temps de Checking: %d\n", t1 - t2);
+		printf(" Temps de verification: %d\n", t1 - t2);
 	}
 
 	/* House keeping. */
@@ -128,7 +128,7 @@ static int swap_test(void)
 
 	/* Print timing statistics. */
 	if (flags & VERBOSE)
-		printf("  Elapsed: %d\n", t1 - t0);
+		printf("  Temps ecoule: %d\n", t1 - t0);
 
 	return (0);
 

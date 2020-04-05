@@ -285,10 +285,10 @@ PRIVATE struct
 } frames[NR_FRAMES] = {{0, 0, 0, 0},  };
 
 
-/* Fonction qui met à jour l'âge */
+/* age update function */
 PRIVATE inline void updateAge(int index) {
 	struct pte *currentPage = getpte(curr_proc,frames[index].addr);
-	if(currentPage->accessed) { //Dès qu'une page est accédé, on réinitialise son âge
+	if(currentPage->accessed) { // As soon as a page is accessed, its age is reset.
 		frames[index].age = 0;
 		currentPage->accessed=0;
 	}
@@ -306,14 +306,14 @@ PRIVATE inline void updateAge(int index) {
  */
  PRIVATE int allocf(void) {
 
- 	int i;      // Loop index
- 	int chosen; // Chosen page
- 	int foundEmpty = 0; // Boolean if an empty frame was found
+ 	int i; // Loop index
+ 	int chosenPage;
+ 	int emptyFrame = 0; // Boolean if an empty frame was found
 
  	#define OLDEST(x, y) (frames[x].age < frames[y].age) // Return true if x is younger that y
 
  	/* Search for a free frame. */
- 	chosen = -1;
+ 	chosenPage = -1;
  	for (i = 0; i < NR_FRAMES; i++) {
 		/* If the frame is used */
  		if(frames[i].count>0) {
@@ -321,14 +321,14 @@ PRIVATE inline void updateAge(int index) {
  		}
 
  		/* If an empty frame was found, just update the frames ages*/
- 		if(foundEmpty) {
+ 		if(emptyFrame) {
  			continue;
  		}
 
  		/* If there is a free frame. */
  		if (frames[i].count == 0) {
- 			foundEmpty=1;
- 			chosen=i;
+ 			emptyFrame=1;
+ 			chosenPage=i;
  		}
 
 		/* Else, apply local page replacement policy. */
@@ -338,26 +338,26 @@ PRIVATE inline void updateAge(int index) {
  				continue;
  			}
  			/* If oldest page found or chosen hasn't a value */
- 			if ((chosen < 0) || (OLDEST(chosen,i))) {
- 				chosen = i;
+ 			if ((chosenPage < 0) || (OLDEST(chosenPage,i))) {
+ 				chosenPage = i;
  			}
  		}
  	}
 
  	/* No frame found. */
- 	if (chosen < 0) {
+ 	if (chosenPage < 0) {
  		return (-1);
  	}
 
  	/* 	Swap page out if we didn't find an empty frame */
- 	if (!foundEmpty && swap_out(curr_proc, frames[chosen].addr)) {
+ 	if (!emptyFrame && swap_out(curr_proc, frames[chosenPage].addr)) {
  		return (-1);
  	}
 
- 	frames[chosen].age = 0;
- 	frames[chosen].count = 1;
+ 	frames[chosenPage].age = 0;
+ 	frames[chosenPage].count = 1;
 
- 	return (chosen);
+ 	return (chosenPage);
  }
 
 /**
